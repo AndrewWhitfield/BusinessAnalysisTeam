@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { AgentOutcome, AgentRole, Phase, RunStatus } from '../types.js';
-import { MAX_ELICITATION_ROUNDS, runBusinessAnalyst, type BaTask } from '../agents/businessAnalyst.js';
+import { MAX_ELICITATION_ROUNDS, MAX_QUESTIONS_PER_ROUND, runBusinessAnalyst, type BaTask } from '../agents/businessAnalyst.js';
 import { runQualityController } from '../agents/qualityController.js';
 import { runLessonsCurator } from '../agents/lessonsCurator.js';
 import { BudgetExhausted } from '../agents/invoke.js';
@@ -278,10 +278,20 @@ class AnalysisRun {
     return this.afterQuestions(round, 'research');
   }
 
-  /** Stops for the owner if the BA wrote questions for `round`; otherwise moves on. */
+  private async questionCount(round: number): Promise<number> {
+    const file = questionsFile(this.paths, round);
+    return (await exists(file)) ? countQuestions(await readFile(file, 'utf8')) : 0;
+  }
+
+  /** Stops for the owner if the BA wrote questions for `round`; otherwise moves on. Over the limit, the BA trims them first. */
   private async afterQuestions(round: number, otherwise: Phase): Promise<StopReason | undefined> {
     const file = questionsFile(this.paths, round);
-    const questions = (await exists(file)) ? countQuestions(await readFile(file, 'utf8')) : 0;
+    const asked = await this.questionCount(round);
+    if (asked > MAX_QUESTIONS_PER_ROUND) {
+      console.log(`[orchestrator] ${asked} questions is over the limit of ${MAX_QUESTIONS_PER_ROUND} — the Business Analyst trims them.`);
+      await this.callBa({ kind: 'trim-questions', round, count: asked });
+    }
+    const questions = await this.questionCount(round);
     if (questions === 0) {
       this.setPhase(otherwise);
       return undefined;

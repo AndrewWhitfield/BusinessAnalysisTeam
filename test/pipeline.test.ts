@@ -17,6 +17,8 @@ interface Script {
   budgetOn?: BaTask['kind'];
   /** The first draft of the specification leaves NFR-2 out of the traceability matrix. */
   untracedFirstDraft?: boolean;
+  /** The first draft of the questions asks this many (over the limit triggers a trim). */
+  questions?: number;
 }
 
 /** A scripted team: the BA writes fixture documents, QC replies from the script, the curator adds a lesson. */
@@ -33,7 +35,9 @@ function scriptedTeam(paths: AnalysisPaths, script: Script) {
       }
       await mkdir(paths.deliverablesDir, { recursive: true });
       await mkdir(paths.elicitationDir, { recursive: true });
-      if (task.kind === 'elicit') await writeFile(questionsFile(paths, task.round), '### Q-1 Which branches?\n- Why it matters: scope\n- If unanswered, I will assume: all\n\n### Q-2 Budget?\n');
+      const questions = (n: number) => Array.from({ length: n }, (_, i) => `### Q-${i + 1} Question ${i + 1}?\n- If you don't answer, I'll assume: a default.\n`).join('\n');
+      if (task.kind === 'elicit') await writeFile(questionsFile(paths, task.round), questions(script.questions ?? 2));
+      if (task.kind === 'trim-questions') await writeFile(questionsFile(paths, task.round), questions(3));
       if (task.kind === 'consolidate') await writeFile(paths.elicitationRecord, '# Elicitation record\nQ-1 all branches.');
       if (task.kind === 'research') await writeFile(paths.researchReport, await fixture('research-report.md'));
       if (task.kind === 'document') {
@@ -111,6 +115,14 @@ describe('the analysis pipeline (scripted agents)', () => {
     expect(ledger.lessons.length).toBe(2);
 
     expect(await runAnalysis({ ...base, owner: { approve: true } })).toBe('accepted');
+  });
+
+  it('holds the analyst to at most five plain questions: over the limit, it trims them before you see them', async () => {
+    const { team, calls } = scriptedTeam(paths, { qc: [ALL_A], questions: 15 });
+    const base = { repoRoot, project: 'room-booking', paths, team, commit: false };
+    expect(await runAnalysis({ ...base, start })).toBe('awaiting-answers');
+    expect(calls).toEqual(['ba:elicit', 'ba:trim-questions']);
+    expect(await readFile(paths.checkpoint, 'utf8')).toMatch(/3 question\(s\)/);
   });
 
   it('never releases below A: stalled rounds stop for owner guidance, which goes to the BA', async () => {

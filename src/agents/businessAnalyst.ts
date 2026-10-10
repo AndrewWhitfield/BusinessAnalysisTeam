@@ -10,6 +10,7 @@ export const MAX_ELICITATION_ROUNDS = 3;
 
 export type BaTask =
   | { kind: 'elicit'; round: number }
+  | { kind: 'trim-questions'; round: number; count: number }
   | { kind: 'consolidate'; round: number; ownerDeferred: boolean }
   | { kind: 'research' }
   | { kind: 'document' }
@@ -62,32 +63,57 @@ ${gradingStandardText(repoRoot)}
 ${handoffContract('business-analyst')}${lessons}`;
 }
 
+/**
+ * The owner's rule (2026-10-10, on the first live run's 15 detailed questions): "I don't understand the
+ * point of these questions." Ask only the few questions that would really change the result, each in
+ * one plain sentence with its default, and quietly assume the rest — listed for the owner to check.
+ */
+export const MAX_QUESTIONS_PER_ROUND = 5;
+
+const QUESTION_RULES = `Question rules (the owner's, and they're strict):
+- At most ${MAX_QUESTIONS_PER_ROUND} questions. Ask only what would really change the result and that only the owner
+  can know (typically: what success looks like, budget and deadline, hard constraints). Everything
+  else you decide yourself with a sensible, evidenced default — don't ask about it.
+- Each question is ONE plain-English sentence a busy non-specialist understands at a glance: no
+  jargon, no acronyms, no legislation names, no multi-part (a)/(b)/(c) questions.
+- Write each exactly in this form (the orchestrator counts "### Q-" headings):
+### Q-1 <one plain sentence>
+- If you don't answer, I'll assume: <the default, in one short sentence>
+- Start the file with one sentence saying why you're asking: the answers change the requirements,
+  and anything left unanswered uses the default and is marked for the owner to confirm.`;
+
 function elicitPrompt(round: number): string {
-  return `Read brief.md (and any files it references in this folder). Do enough quick research to ask
-informed questions, then write elicitation/questions-round-${round}.md: the questions only the owner
-can answer that would change the requirements — scope, goals and success measures, stakeholders and
-users, constraints (budget, time, technology, policy), jurisdictions, priorities, and anything the
-brief leaves ambiguous. At most 15, the most decision-relevant first, grouped under short headings.
-Write each question exactly in this form (the orchestrator counts "### Q-" headings):
-### Q-1 <the question>
-- Why it matters: <what it changes in the requirements>
-- If unanswered, I will assume: <your default and its basis>
-If the brief already settles everything that matters, write the file with the line "No questions." and no Q- headings.`;
+  return `Read brief.md (and any files it references in this folder). Do enough quick research to know
+which unknowns really matter, then write elicitation/questions-round-${round}.md.
+${QUESTION_RULES}
+After the questions, add a short section "## What I'll assume without asking" listing, one line each,
+the other defaults you've chosen, so the owner can correct any at a glance.
+If the brief already settles everything that matters, write the file with the line "No questions." and
+the assumptions section, and no Q- headings.`;
+}
+
+function trimQuestionsPrompt(round: number, count: number): string {
+  return `elicitation/questions-round-${round}.md has ${count} questions; the limit is ${MAX_QUESTIONS_PER_ROUND}. Rewrite the file to
+keep only the ${MAX_QUESTIONS_PER_ROUND} or fewer that would most change the result. Move every other question to "## What
+I'll assume without asking" as a one-line default.
+${QUESTION_RULES}`;
 }
 
 function consolidatePrompt(round: number, ownerDeferred: boolean): string {
   const next = round + 1;
   const owner = ownerDeferred
-    ? `The owner chose not to answer round ${round}'s questions and approved your stated default assumptions (elicitation/answers-round-${round}.md).`
+    ? `The owner chose not to answer round ${round}'s questions and approved your stated defaults (elicitation/answers-round-${round}.md).`
     : `The owner answered round ${round} in elicitation/answers-round-${round}.md (their own words — treat them as requirements).`;
   return `${owner}
 Read brief.md and every elicitation/questions-round-*.md and answers-round-*.md, then write
-elicitation/elicitation-record.md: every question with its answer quoted, or the default assumption
-now adopted (marked "assumption — to be validated by the owner"), and the requirements each implies.
+elicitation/elicitation-record.md: every question with its answer quoted, or the default now adopted,
+plus every "assume without asking" default — each default marked "assumption — to be confirmed by the
+owner" — and the requirements each implies.
 ${next <= MAX_ELICITATION_ROUNDS
-    ? `If — and only if — the answers open a gap that changes the requirements materially and that research
-can't close, also write elicitation/questions-round-${next}.md in the same "### Q-n" form, numbering on
-from the last question. Otherwise don't create that file.`
+    ? `Only if an answer opens a gap that changes the requirements materially and that research can't close,
+also write elicitation/questions-round-${next}.md (at most 3 questions this time, numbering on from the last
+question). Otherwise don't create that file — a sensible default is better than another round of questions.
+${QUESTION_RULES}`
     : 'This was the last question round: anything still unknown becomes an explicit assumption.'}`;
 }
 
@@ -134,6 +160,8 @@ export function baPrompt(task: BaTask, repoRoot: string): string {
   switch (task.kind) {
     case 'elicit':
       return elicitPrompt(task.round);
+    case 'trim-questions':
+      return trimQuestionsPrompt(task.round, task.count);
     case 'consolidate':
       return consolidatePrompt(task.round, task.ownerDeferred);
     case 'research':
@@ -161,6 +189,6 @@ export async function runBusinessAnalyst(params: {
     paths: params.paths,
     remainingBudget: params.remainingBudget,
     // Research and documentation are many fetches and edits; each counts as a turn.
-    maxTurns: params.task.kind === 'elicit' || params.task.kind === 'consolidate' ? 40 : 150,
+    maxTurns: ['elicit', 'trim-questions', 'consolidate'].includes(params.task.kind) ? 40 : 150,
   });
 }
