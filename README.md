@@ -146,8 +146,9 @@ Usually the analyst needs something only you know. Your guidance resets the coun
 
 ## What you get
 
-Each analysis is its own folder and local git repo, under `BAT_ANALYSES_ROOT` (default
-`C:\DEV\Repos\Analyses`). The orchestrator commits there after every step and never pushes.
+Each analysis is its own folder and local git repo, under `analyses/` in this repo (gitignored, so
+analyses are never published with the team; set `BAT_ANALYSES_ROOT` to put them elsewhere). The
+orchestrator commits there after every step and never pushes.
 
 ```
 <analysis>/
@@ -174,13 +175,41 @@ The document structures are fixed by
 
 ## Using it
 
-### Setup
+### First-time setup
+
+You need:
+
+- **Node.js 20 or later** ([nodejs.org](https://nodejs.org)). Run `node --version` to check.
+- **One way for the agents to sign in to Claude:**
+  - **Claude Code, signed in on this machine** (the simplest). Install it from
+    [claude.com/claude-code](https://claude.com/claude-code), run `claude` once and sign in with `/login`.
+    Usage then counts against that Claude account. Nothing else to configure.
+  - **Or an Anthropic API key.** Copy `.env.example` to `.env` and set `ANTHROPIC_API_KEY`. Usage is billed
+    to that API account. A key in `.env` takes priority over a Claude Code sign-in.
+- **git** (optional but recommended). Without it, analyses still run, but each draft isn't versioned.
+
+Then, in this folder:
 
 ```bash
-npm install
+npm run setup
 ```
 
-Copy `.env.example` to `.env` and set `ANTHROPIC_API_KEY`. Other settings are optional.
+This installs the dependencies and runs `npm run doctor`, which checks:
+
+- Node, the dependencies, git, and that the analyses folder is writable;
+- one tiny test call per configured model (a few cents each), proving the sign-in works and that your
+  account can use the models.
+
+Every check that fails says what to do. Re-run `npm run doctor` any time;
+`npm run doctor -- --skip-probe` checks without making model calls.
+
+The defaults use `claude-opus-5-5`. If your account can't use it, set the `BAT_MODEL_*` variables in `.env`
+(see `.env.example`) and run the doctor again.
+
+**If something goes wrong mid-run.** A failed sign-in, an exhausted credit balance or a model the account
+can't use stops the run straight away with what to fix. Nothing is lost. Fix it, then continue with
+`npm start -- --project <name> --resume`. Before every run, `npm start` also repeats the free local
+checks, so a setup gap is caught before anything is spent.
 
 ### Start an analysis
 
@@ -223,6 +252,7 @@ cmd.exe, which silently cuts text at its first line break.
 |---|---|
 | `npm run learn -- --project <name> --occasion "<what>" --file <path>` | Teaches the team from feedback given outside a run |
 | `npm run pack-check -- <project>` | Runs the mechanical pre-check by hand |
+| `npm run doctor` | Checks this machine's setup and sign-in (see [First-time setup](#first-time-setup)) |
 | `npm run check` | Typecheck, lint (complexity cap 12) and the test suite |
 
 ## Continuous learning

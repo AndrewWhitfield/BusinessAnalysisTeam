@@ -1,13 +1,13 @@
 import path from 'node:path';
 
 /**
- * Where analyses live — outside this repo, one folder (and local git repo) per analysis.
- * BAT_ANALYSES_ROOT overrides the default: an "Analyses" folder two levels up from the repo
- * (for C:\DEV\Repos\Ideas\BusinessAnalysisTeam that is C:\DEV\Repos\Analyses).
+ * Where analyses live — one folder (and local git repo) per analysis. The default, `analyses/` inside
+ * this repo, works on any machine and is gitignored, so analyses are never published with the team.
+ * BAT_ANALYSES_ROOT puts them anywhere else.
  */
 export function analysesRoot(repoRoot: string): string {
   const configured = process.env.BAT_ANALYSES_ROOT?.trim();
-  return configured ? path.resolve(configured) : path.resolve(repoRoot, '..', '..', 'Analyses');
+  return configured ? path.resolve(configured) : path.join(repoRoot, 'analyses');
 }
 
 /** Paths inside one analysis folder. Agents run with `dir` as their working directory. */

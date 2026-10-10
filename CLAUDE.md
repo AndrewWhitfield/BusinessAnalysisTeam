@@ -25,7 +25,8 @@ Mark substantive changes in its Revision log.
   the owner gives in chat goes through
   `npm run learn -- --project <name> --occasion "<what>" --file <path>`.
 - **Push only owner-approved changes.** Commit locally as you go and keep branches to a minimum.
-  Analyses live outside this repo (`BAT_ANALYSES_ROOT`) and are never pushed.
+  Analyses live in the gitignored `analyses/` folder (or `BAT_ANALYSES_ROOT`) and are never pushed.
+- **Setup must work on any machine:** sign-in via Claude Code or `ANTHROPIC_API_KEY`; `npm run doctor` checks it. Bake any new setup need into `src/setup/checks.ts` and README "First-time setup", never into this PC's config.
 - Check with `npm run check` (tsc, eslint with complexity cap 12, vitest). Prove pipeline changes with
   the scripted-agent test in `test/pipeline.test.ts` before spending on a live run.
 - Multi-line text goes in a file (`--brief-file`, `--feedback-file`). On Windows, cmd.exe cuts

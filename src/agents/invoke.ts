@@ -18,6 +18,23 @@ export class BudgetExhausted extends Error {
   }
 }
 
+/**
+ * A problem with this machine's setup — no sign-in, a rejected key, no access to the model — rather
+ * than with the agent's work. Retrying can't fix it, so the run stops with what to do (README "Setup").
+ */
+export class SetupProblem extends Error {}
+
+const SETUP_ERRORS: [RegExp, string][] = [
+  [/invalid.{0,20}api.?key|authentication|unauthori[sz]ed|not logged in|\/login|401/i, 'The agents could not sign in to Claude. Sign in to Claude Code on this machine (run `claude`, then /login), or set ANTHROPIC_API_KEY in .env. Then run `npm run doctor`.'],
+  [/credit balance|billing|quota|usage limit/i, 'The Claude account has no usage left (credit balance or plan limit). Top it up or wait for the limit to reset, then resume.'],
+  [/model.{0,40}(not found|not available|does not exist|no access)|does not have access/i, 'This account cannot use the configured model. Set BAT_MODEL_BUSINESS_ANALYST / BAT_MODEL_QUALITY_CONTROLLER / BAT_MODEL_LESSONS_CURATOR in .env to a model it can use, then run `npm run doctor`.'],
+];
+
+/** The setup advice for an errored session's text, if it failed for a setup reason. */
+export function setupAdvice(text: string): string | undefined {
+  return SETUP_ERRORS.find(([re]) => re.test(text))?.[1];
+}
+
 export interface InvokeParams {
   role: AgentRole;
   taskId: string;
@@ -45,6 +62,28 @@ function toolOptions(params: InvokeParams): Partial<Options> {
   return { allowedTools: policy.allowedTools, ...(policy.hooks ? { hooks: policy.hooks } : {}) };
 }
 
+type SessionResult = Pick<AgentOutcome, 'rawText' | 'isError' | 'costUsd' | 'tokens'>;
+
+/** Runs one SDK session to its result message, with the real cost and token counts. */
+async function runSession(prompt: string, options: Options): Promise<SessionResult> {
+  const r: SessionResult = { rawText: '', isError: false, costUsd: 0, tokens: 0 };
+  try {
+    for await (const message of query({ prompt, options })) {
+      if (message.type !== 'result') continue;
+      r.isError = message.is_error;
+      r.rawText = message.subtype === 'success' ? message.result : message.errors.join('\n');
+      r.costUsd = message.total_cost_usd;
+      for (const u of Object.values(message.modelUsage ?? {})) r.tokens += u.inputTokens + u.outputTokens;
+    }
+  } catch (err) {
+    // A session that ends in error (most often out of turns) is a failed attempt, not a dead run:
+    // files on disk survive and the next step judges them.
+    r.isError = true;
+    r.rawText = `${r.rawText}\n${err instanceof Error ? err.message : String(err)}`.trim();
+  }
+  return r;
+}
+
 async function runOnce(params: InvokeParams): Promise<AgentOutcome> {
   const remaining = params.remainingBudget();
   if (remaining < MIN_CALL_USD) throw new BudgetExhausted(remaining);
@@ -58,24 +97,10 @@ async function runOnce(params: InvokeParams): Promise<AgentOutcome> {
     maxBudgetUsd: remaining,
     ...ISOLATION,
   };
-  let rawText = '';
-  let isError = false;
-  let costUsd = 0;
-  let tokens = 0;
-  try {
-    for await (const message of query({ prompt: params.prompt, options })) {
-      if (message.type !== 'result') continue;
-      isError = message.is_error;
-      rawText = message.subtype === 'success' ? message.result : message.errors.join('\n');
-      costUsd = message.total_cost_usd;
-      for (const u of Object.values(message.modelUsage ?? {})) tokens += u.inputTokens + u.outputTokens;
-    }
-  } catch (err) {
-    // A session that ends in error (most often out of turns) is a failed attempt, not a dead run:
-    // files on disk survive and the next step judges them.
-    isError = true;
-    rawText = `${rawText}\n${err instanceof Error ? err.message : String(err)}`.trim();
-  }
+  const run = await runSession(params.prompt, options);
+  const advice = run.isError && run.costUsd === 0 ? setupAdvice(run.rawText) : undefined;
+  if (advice) throw new SetupProblem(`${advice}\n(Claude said: ${run.rawText.trim().slice(0, 300)})`);
+  const { rawText, isError, costUsd, tokens } = run;
   const parsed = parseHandoff(rawText);
   return { rawText, isError, costUsd, tokens, ...(parsed.ok ? { handoff: parsed.handoff } : { handoffError: parsed.error }) };
 }

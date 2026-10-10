@@ -7,6 +7,8 @@
   "type": "module",
   "engines": { "node": ">=20" },
   "scripts": {
+    "setup": "npm install && npm run doctor",
+    "doctor": "tsx src/setup/doctor.ts",
     "start": "tsx src/index.ts",
     "learn": "tsx src/orchestrator/learnCli.ts",
     "pack-check": "tsx src/quality/precheckCli.ts",

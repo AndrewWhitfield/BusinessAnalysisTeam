@@ -3,7 +3,7 @@ import path from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { runAnalysis, type Team } from '../src/orchestrator/pipeline.js';
 import { pathsFor, questionsFile, type AnalysisPaths } from '../src/orchestrator/paths.js';
-import { BudgetExhausted } from '../src/agents/invoke.js';
+import { BudgetExhausted, SetupProblem, setupAdvice } from '../src/agents/invoke.js';
 import type { BaTask } from '../src/agents/businessAnalyst.js';
 import type { AgentOutcome } from '../src/types.js';
 import { fixture, handoffJson, qcReport, tempRepo } from './helpers.js';
@@ -173,5 +173,32 @@ describe('the analysis pipeline (scripted agents)', () => {
     const base = { repoRoot, project: 'room-booking', paths, team, commit: false };
     await runAnalysis({ ...base, start: { ...start, askQuestions: false } });
     await expect(runAnalysis({ ...base, start })).rejects.toThrow(/already has an analysis/);
+  });
+});
+
+describe('setup problems', () => {
+  it('stop the run with guidance and leave the analysis where it was, ready to resume', async () => {
+    const { team } = scriptedTeam(paths, { qc: [ALL_A] });
+    const base = { repoRoot, project: 'room-booking', paths, commit: false };
+    let failSignIn = true;
+    const flaky: Team = {
+      ...team,
+      ba: async (task, id) => {
+        if (failSignIn) throw new SetupProblem('The agents could not sign in to Claude.');
+        return team.ba(task, id);
+      },
+    };
+    expect(await runAnalysis({ ...base, team: flaky, start: { ...start, askQuestions: false } })).toBe('setup-problem');
+    expect(await readFile(paths.checkpoint, 'utf8')).toMatch(/could not sign in/);
+    expect(JSON.parse(await readFile(paths.runStatus, 'utf8')).phase).toBe('research');
+    failSignIn = false;
+    expect(await runAnalysis({ ...base, team: flaky, owner: {} })).toBe('awaiting-acceptance');
+  });
+
+  it('recognise sign-in, billing and model-access errors', () => {
+    expect(setupAdvice('Invalid API key · Please run /login')).toMatch(/sign in/);
+    expect(setupAdvice('Your credit balance is too low')).toMatch(/no usage left/);
+    expect(setupAdvice('model: claude-x not found')).toMatch(/cannot use the configured model/);
+    expect(setupAdvice('The research report is missing a section')).toBeUndefined();
   });
 });

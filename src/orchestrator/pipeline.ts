@@ -4,7 +4,7 @@ import type { AgentOutcome, AgentRole, Phase, RunStatus } from '../types.js';
 import { MAX_ELICITATION_ROUNDS, MAX_QUESTIONS_PER_ROUND, runBusinessAnalyst, type BaTask } from '../agents/businessAnalyst.js';
 import { runQualityController } from '../agents/qualityController.js';
 import { runLessonsCurator } from '../agents/lessonsCurator.js';
-import { BudgetExhausted } from '../agents/invoke.js';
+import { BudgetExhausted, SetupProblem } from '../agents/invoke.js';
 import { evaluateQcReport, revisionBrief, scorecard, type QcVerdict } from '../quality/qcReport.js';
 import { formatPrecheck, runPrecheck } from '../quality/precheck.js';
 import { isStalled, STALL_WINDOW } from '../quality/progress.js';
@@ -56,7 +56,7 @@ export interface RunParams {
 }
 
 /** Why a run stopped. */
-export type StopReason = 'awaiting-answers' | 'awaiting-guidance' | 'awaiting-acceptance' | 'accepted' | 'budget';
+export type StopReason = 'awaiting-answers' | 'awaiting-guidance' | 'awaiting-acceptance' | 'accepted' | 'budget' | 'setup-problem';
 
 let taskCounter = 0;
 function taskId(kind: string): string {
@@ -106,12 +106,20 @@ class AnalysisRun {
         if (stop) return stop;
       }
     } catch (err) {
+      if (err instanceof SetupProblem) return this.setupStop(err);
       if (!(err instanceof BudgetExhausted)) throw err;
       this.status.budgetPaused = true;
       await this.checkpoint('budget', `This invocation has used its $${this.budget.cap.toFixed(2)} budget (analysis total so far $${this.budget.totalUsd.toFixed(2)}). Work done is saved.\n\nContinue with a fresh cap: \`npm start -- --project ${this.params.project} --resume --approve\``);
       await this.save('Paused at the budget cap');
       return 'budget';
     }
+  }
+
+  /** Nothing about the analysis changed: the step that hit the problem runs again on --resume. */
+  private async setupStop(err: SetupProblem): Promise<StopReason> {
+    await this.checkpoint('setup problem', `${err.message}\n\nThe analysis is saved where it stopped. Once fixed, continue with:\n  npm start -- --project ${this.params.project} --resume`);
+    await this.save('Stopped: setup problem');
+    return 'setup-problem';
   }
 
   // ---- state ----------------------------------------------------------------------------------
@@ -446,7 +454,7 @@ class AnalysisRun {
         console.log(`[orchestrator] Lessons: ${curation.add.length} added, ${curation.update.length} updated, ${curation.retire.length} retired.`);
       } else console.warn('[orchestrator] The Lessons curator gave no valid lessons block — the evidence is recorded, the ledger unchanged.');
     } catch (err) {
-      if (err instanceof BudgetExhausted) throw err;
+      if (err instanceof BudgetExhausted || err instanceof SetupProblem) throw err;
       console.warn(`[orchestrator] Learning failed (the run carries on): ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       if (this.params.commit !== false) await commitKnowledge(repoRoot, `Team learning: ${this.params.project} — ${occasion}`);

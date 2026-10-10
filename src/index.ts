@@ -4,6 +4,7 @@ import path from 'node:path';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { runAnalysis, type RunParams } from './orchestrator/pipeline.js';
+import { blocking, formatChecks, localChecks } from './setup/checks.js';
 
 const USAGE = `Usage:
   npm start -- --project <name> --brief-file <brief.md> [--no-questions] [--min-sources <n>]
@@ -62,7 +63,19 @@ function parseArgs(argv: string[], repoRoot: string): RunParams {
 
 const repoRoot = path.resolve(fileURLToPath(import.meta.url), '../..');
 
-runAnalysis(parseArgs(process.argv.slice(2), repoRoot))
+/** The free local checks run before every analysis, so a setup gap stops it before any spend. */
+async function main(): Promise<string> {
+  const params = parseArgs(process.argv.slice(2), repoRoot);
+  const problems = blocking(await localChecks(repoRoot));
+  if (problems.length > 0) {
+    console.error(`Setup isn't complete:\n${formatChecks(problems)}\n\nFix these, then run \`npm run doctor\`.`);
+    process.exitCode = 1;
+    return 'setup-problem';
+  }
+  return runAnalysis(params);
+}
+
+main()
   .then((stop) => console.log(`\n[orchestrator] Stopped: ${stop}.`))
   .catch((err) => {
     console.error('\n[orchestrator] Fatal error:', err instanceof Error ? err.message : err);

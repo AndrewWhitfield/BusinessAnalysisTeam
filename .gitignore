@@ -2,4 +2,6 @@ node_modules/
 dist/
 .env
 logs/
+# Analyses (each its own local git repo) — never published with the team.
+analyses/
 coverage/
