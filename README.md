@@ -284,10 +284,21 @@ threshold is ever relaxed to save money. Cost is still tracked and reported hone
 - **Capped per invocation.** `BAT_MAX_RUN_USD` defaults to $30. Each call's SDK `maxBudgetUsd` is set to
   what's left, and a call isn't started with less than $2 remaining. At the cap the run stops at a
   `budget` checkpoint, and `--resume --approve` continues with a fresh cap.
-- **Expected spend** (an estimate, not yet measured on a live run): elicitation under $2; research and
-  documentation $3–10, depending on depth; each QC round $2–5 and each revision $1–4. A typical analysis
-  reaching A in two to four rounds costs roughly $10–35. The first live runs should replace this
-  estimate with measured figures.
+- **Measured spend** (the first live run, [examples/room-booking](examples/room-booking/deliverables/README.md),
+  2026-10-10, all agents on `claude-opus-5-5`), **$54.18 in total**, reaching A at QC round 5:
+
+  | Step | Cost |
+  |---|---|
+  | Questions | $0.90 |
+  | Consolidating the answers | $1.73 |
+  | Research | $10.41 |
+  | Requirements specification | $7.25 |
+  | QC rounds 1–5 | $5.32, $4.23, $3.75, $3.26, $2.36 (they get cheaper as the pack improves) |
+  | Revisions 1–4 | $4.48, $4.60, $4.14, $1.43 |
+  | Lessons | $0.29 |
+
+  Expect roughly **$40–70 for an analysis of this size**. The $30 default cap therefore pauses a typical
+  analysis once, for your go-ahead. Raise `BAT_MAX_RUN_USD` if you'd rather it ran straight through.
 - **Cost-saving design:**
   - the free mechanical pre-check runs before QC;
   - an invalid QC report is repaired by QC alone, not by a BA revision;
@@ -320,10 +331,19 @@ src/quality/      grading rules, QC report parser, mechanical pre-check, stall d
 src/orchestrator/ the state machine (pipeline.ts), records, learning ledger, presentation page
 knowledge/        what the team has learnt (committed)
 test/             unit tests, plus an end-to-end pipeline test with scripted agents (no model spend)
-examples/         an example brief
+examples/         an example brief, and room-booking/: the first live run's full output (A at round 5)
 ```
 
 ## Revision log
+
+- **2026-10-10.** First live run, on the library room-booking example. It reached A at QC round 5
+  ($54.18); the full output is in [examples/room-booking](examples/room-booking/deliverables/README.md)
+  (round history C → C → B → B → A). The round-1 questions there predate the five-question rule.
+  Owner feedback on those 15 questions led to the rule itself: at most five plain questions, with
+  everything else assumed and listed. The run added six lessons to `knowledge/lessons.json`. First-time
+  setup added (`npm run setup`, `npm run doctor`; sign-in through Claude Code or an API key; analyses
+  saved to the gitignored `analyses/` folder); setup failures now stop a run with what to fix. The cost
+  estimate was replaced with measured figures.
 
 - **2026-10-10.** Created from AgentTeam's business-analysis roles at the owner's request. Business
   Analyst and Quality Controller with an A-only gate; the grading standard (the definition of A); the
