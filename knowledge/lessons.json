@@ -22,6 +22,50 @@
       "lesson": "When reviewing owner-facing questions, raise a finding if there are more than about five questions, if any question doesn't clearly change the outcome, if any is multi-part or uses jargon, or if any lacks a default. Don't ask for more questions to close a gap. Check instead that the gap appears as a stated assumption the owner can review.",
       "why": "room-booking, round 1: an over-long, jargon-heavy question set reached the owner and confused them. The owner approved a short-questions-plus-listed-assumptions format, so QC should enforce that format and not push the BA back towards exhaustive questioning.",
       "status": "active"
+    },
+    {
+      "id": "L-003",
+      "added": "2026-10-10",
+      "source": "room-booking — the findings QC and the pre-check raised before the pack reached A (5 round(s)) (2026-10-10)",
+      "roles": [
+        "business-analyst"
+      ],
+      "lesson": "Whenever a design includes a public-facing sign-in or other user-chosen secret, specify attempt limiting in the first draft. Cover: a per-account throttle; an overall cap that disables the credential until a verified re-enable (with a staff action to do it); when counts reset; a per-source or bot check; and testable criteria. Estimate the protection from evidence on how people actually choose secrets (common PINs, date-of-birth defaults), not from uniform-random odds, and record the secret's format and how it is set as an assumption with a named validator.",
+      "why": "room-booking: the sign-in limit cost four rounds. Round 1 MAJOR: nothing limited wrong-PIN guessing. Round 2 MAJOR: a repeating 15-minute block with no overall cap allowed 480 guesses a day. Round 3 MINOR: the estimate assumed random PINs, which overstated the protection more than tenfold (real figure about 5–8% at 20 guesses).",
+      "status": "active"
+    },
+    {
+      "id": "L-004",
+      "added": "2026-10-10",
+      "source": "room-booking — the findings QC and the pre-check raised before the pack reached A (5 round(s)) (2026-10-10)",
+      "roles": [
+        "all"
+      ],
+      "lesson": "When a standard is relied on, read the whole relevant part, not just the clause that supports the design. Quote qualifying words exactly, tell a cap apart from a rate, and report anything in the same standard that tells against the design. Claim conformance only to the specific clause (\"within NIST SP 800-63B §3.2.2's limit on failed attempts\"), never \"meets <standard>\". QC should fetch and check the surrounding sections, not only the cited clause.",
+      "why": "room-booking. Round 2 MAJOR: NIST's 100 was treated as a rate, and F-34 dropped \"by disabling that authenticator\". Round 4 MINOR: the pack said it \"meets NIST\" while §3.1.1.2 rejects a short PIN as a single factor. QC missed this in rounds 2 and 3 because it checked only §3.2.2.",
+      "status": "active"
+    },
+    {
+      "id": "L-005",
+      "added": "2026-10-10",
+      "source": "room-booking — the findings QC and the pre-check raised before the pack reached A (5 round(s)) (2026-10-10)",
+      "roles": [
+        "quality-controller"
+      ],
+      "lesson": "Treat your own uplift wording as draft requirement text, because the BA implements it as written. Before issuing it, check it against the full cited source and against the glossary (one term per concept, no reuse of an existing term for a new meaning).",
+      "why": "room-booking: QC's round-1 uplift wording caused the round-2 MAJOR (no overall cap), and QC's round-2 wording made \"block\" mean three things, the round-3 MINOR. Each cost a full round.",
+      "status": "active"
+    },
+    {
+      "id": "L-006",
+      "added": "2026-10-10",
+      "source": "room-booking — the findings QC and the pre-check raised before the pack reached A (5 round(s)) (2026-10-10)",
+      "roles": [
+        "business-analyst"
+      ],
+      "lesson": "Keep the glossary as a gate. Every ID prefix and acronym must be defined, and every statistic (risk ratio, confidence interval, p-value) explained in one plain sentence at first use for a lay owner. Before adding a new term, search the documents and glossary for existing meanings, so that each concept has exactly one term.",
+      "why": "room-booking: round 1 MINOR (FR, US, FIDO2 and HTTPS undefined; statistics unexplained) and round 3 MINOR (\"block\" used for a room block, an LMS account status and a sign-in pause). Each cost a round.",
+      "status": "active"
     }
   ]
 }
