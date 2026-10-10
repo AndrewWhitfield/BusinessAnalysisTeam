@@ -1,0 +1,33 @@
+{
+  "name": "business-analysis-team",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An AI business analysis team: a Business Analyst gathers requirements, researches and documents; an independent Quality Controller grades the pack and returns it until it earns an A.",
+  "license": "MIT",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "learn": "tsx src/orchestrator/learnCli.ts",
+    "pack-check": "tsx src/quality/precheckCli.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "check": "tsc --noEmit && eslint . && vitest run"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.296",
+    "dotenv": "^16.4.7",
+    "execa": "^9.5.2",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "@types/node": "^22.10.5",
+    "eslint": "^9.18.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.19.1",
+    "vitest": "^3.2.4"
+  }
+}
