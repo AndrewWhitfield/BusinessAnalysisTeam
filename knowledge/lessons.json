@@ -1,1 +1,27 @@
-{ "version": 1, "lessons": [] }
+{
+  "version": 1,
+  "lessons": [
+    {
+      "id": "L-001",
+      "added": "2026-10-10",
+      "source": "room-booking — owner reaction to round-1 elicitation questions (2026-10-10)",
+      "roles": [
+        "business-analyst"
+      ],
+      "lesson": "When eliciting from the owner, ask about five questions at most, and only ones whose answer would really change the result. Write each as one plain-language sentence with no acronyms, no legislation citations and no multi-part sub-questions, and put your proposed default beside it. Quietly assume everything else, and list those assumptions for the owner to check.",
+      "why": "room-booking, round 1: the BA asked 15 detailed, multi-part questions citing legislation and acronyms. The owner replied \"I don't understand the point of these questions\" and approved this format as the fix.",
+      "status": "active"
+    },
+    {
+      "id": "L-002",
+      "added": "2026-10-10",
+      "source": "room-booking — owner reaction to round-1 elicitation questions (2026-10-10)",
+      "roles": [
+        "quality-controller"
+      ],
+      "lesson": "When reviewing owner-facing questions, raise a finding if there are more than about five questions, if any question doesn't clearly change the outcome, if any is multi-part or uses jargon, or if any lacks a default. Don't ask for more questions to close a gap. Check instead that the gap appears as a stated assumption the owner can review.",
+      "why": "room-booking, round 1: an over-long, jargon-heavy question set reached the owner and confused them. The owner approved a short-questions-plus-listed-assumptions format, so QC should enforce that format and not push the BA back towards exhaustive questioning.",
+      "status": "active"
+    }
+  ]
+}
